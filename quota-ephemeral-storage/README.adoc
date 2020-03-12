@@ -1,19 +1,18 @@
-
 WARNING: Setting for ephemeral-storage is a tech preview feature. By enabling it, the cluster cannot be upgraded anymore. 
 
 ## Steps
 
-First enable TechPreview features
+* First enable TechPreview features
 
-* https://docs.openshift.com/container-platform/4.1/nodes/clusters/nodes-cluster-enabling-features.html
+[]https://docs.openshift.com/container-platform/4.1/nodes/clusters/nodes-cluster-enabling-features.html
 
 ----
 oc patch FeatureGate cluster --type merge --patch '{"spec":{"featureSet": "TechPreviewNoUpgrade"}}'
 ----
 
-Then deploy a custom Kubelet
+* Then deploy a custom Kubelet
 
-* https://docs.openshift.com/container-platform/4.3/scalability_and_performance/recommended-host-practices.html#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_
+[]https://docs.openshift.com/container-platform/4.3/scalability_and_performance/recommended-host-practices.html#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_
 
 ----
 oc label machineconfigpool worker custom-kubelet=restricted-storage
@@ -38,7 +37,7 @@ spec:
 EOF
 ----
 
-* Then enable ephemeralStorage quota
+* Create a test project and a quota for it
 
 ----
 cat <<EOF|oc create -f -
@@ -49,20 +48,20 @@ metadata:
 spec:
   hard:
     requests.ephemeral-storage: 1Gi
-    limits.ephemeral-storage: 2Gi 
+    limits.ephemeral-storage: 1Gi 
 EOF
 ----
 
 * Then deploy a DB with ephemeral storage and set limits and requests for ephemeral storage
 ----
-oc new-app mariadb-ephemeral
-oc set resources dc mariadb --requests=ephemeral-storage=1Gi --limits=ephemeral-storage=1Gi
-
 oc new-app mysql-ephemeral
-oc set resources dc mysql --requests=ephemeral-storage=1Gi --limits=ephemeral-storage=1Gi
+oc set resources dc mysql --requests=ephemeral-storage=1Gi --limits=ephemeral-storage=2Gi
 ----
 
-Check events
+* The pod cannot be deployed because it exceeds the limits quota. To confirm, check the events
+
 ----
+oc get events -w
+
 29s         Warning   FailedCreate        replicationcontroller/mysql-2     Error creating: pods "mysql-2-cvtn5" is forbidden: exceeded quota: storage-resources, requested: requests.ephemeral-storage=1Gi, used: requests.ephemeral-storage=1Gi, limited: requests.ephemeral-storage=1Gi
 ----
