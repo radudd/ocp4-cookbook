@@ -1,0 +1,67 @@
+### Steps
+
+First enable TechPreview features
+
+WARNING: Enabling this will prevent updates to the cluster
+
+* https://docs.openshift.com/container-platform/4.1/nodes/clusters/nodes-cluster-enabling-features.html
+
+----
+oc patch FeatureGate cluster --type merge --patch '{"spec":{"featureSet": "TechPreviewNoUpgrade"}}'
+----
+
+Then deploy a custom Kubelet
+
+* https://docs.openshift.com/container-platform/4.3/scalability_and_performance/recommended-host-practices.html#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_
+
+----
+oc label machineconfigpool worker custom-kubelet=restricted-storage
+----
+
+----
+oc get kubeletconfigcat <<EOF | oc apply -f -
+apiVersion: machineconfiguration.openshift.io/v1
+kind: KubeletConfig
+metadata:
+  name: quota-ephemeral-storage
+spec:
+  machineConfigPoolSelector:
+    matchLabels:
+      custom-kubelet: restricted-storage
+  kubeletConfig:
+    featureGates: 
+      ExperimentalCriticalPodAnnotation: true
+      LocalStorageCapacityIsolation: true
+      RotateKubeletServerCertificate: true
+      SupportPodPidsLimit: true
+EOF
+----
+
+* Then enable ephemeralStorage quota
+
+----
+cat <<EOF|oc create -f -
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: storage-resources
+spec:
+  hard:
+    requests.ephemeral-storage: 1Gi
+    limits.ephemeral-storage: 2Gi 
+EOF
+----
+
+* Then deploy a DB with ephemeral storage and set limits and requests for ephemeral storage
+----
+oc new-app mariadb-ephemeral
+oc set resources dc mariadb --requests=ephemeral-storage=1Gi --limits=ephemeral-storage=1Gi
+
+oc new-app mysql-ephemeral
+oc set resources dc mysql --requests=ephemeral-storage=1Gi --limits=ephemeral-storage=1Gi
+----
+
+Check events
+----
+29s         Warning   FailedCreate        replicationcontroller/mysql-2     Error creating: pods "mysql-2-cvtn5" is forbidden: exceeded quota: storage-resources, requested: requests.ephemeral-storage=1Gi, used: requests.ephemeral-storage=1Gi, limited: requests.ephemeral-storage=1Gi
+----
