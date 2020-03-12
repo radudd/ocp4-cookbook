@@ -1,8 +1,9 @@
-### Steps
+
+WARNING: Setting for ephemeral-storage is a tech preview feature. By enabling it, the cluster cannot be upgraded anymore. 
+
+## Steps
 
 First enable TechPreview features
-
-WARNING: Enabling this will prevent updates to the cluster
 
 * https://docs.openshift.com/container-platform/4.1/nodes/clusters/nodes-cluster-enabling-features.html
 
